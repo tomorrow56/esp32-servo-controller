@@ -1,0 +1,466 @@
+<!--
+  SPDX-License-Identifier: MIT
+  Copyright (c) 2026 tomorrow56
+  https://github.com/tomorrow56/esp32-servo-controller
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Servo Controller - ROS2版</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a365d 0%, #2d6a4f 100%);
+      min-height: 100vh; padding: 20px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    .header { text-align: center; color: white; margin-bottom: 24px; }
+    .header h1 { font-size: 2em; margin-bottom: 8px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+    .header p  { font-size: 0.95em; opacity: 0.9; }
+    .header a  { color: rgba(255,255,255,0.85); }
+
+    .connection-bar {
+      background: white; border-radius: 12px; padding: 14px 20px;
+      margin-bottom: 18px; display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2); flex-wrap: wrap;
+    }
+    .connection-bar label { font-weight: bold; color: #333; white-space: nowrap; }
+    .connection-bar input {
+      padding: 7px 12px; border: 2px solid #e0e0e0; border-radius: 6px;
+      font-size: 0.95em; width: 160px;
+    }
+    .status-badge {
+      padding: 5px 14px; border-radius: 20px; font-weight: bold; font-size: 0.85em;
+    }
+    .status-disconnected { background: #fee; color: #c33; }
+    .status-connected    { background: #efe; color: #3a3; }
+
+    .btn {
+      padding: 9px 18px; border: none; border-radius: 8px; font-size: 0.9em;
+      cursor: pointer; font-weight: bold; display: inline-flex; align-items: center;
+      gap: 5px; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary   { background: #2d6a4f; color: white; }
+    .btn-success   { background: #48bb78; color: white; }
+    .btn-danger    { background: #f56565; color: white; }
+    .btn-secondary { background: #718096; color: white; }
+    .btn-warning   { background: #ed8936; color: white; }
+    .btn-primary:hover:not(:disabled)   { background: #1b4332; transform: translateY(-1px); }
+    .btn-success:hover:not(:disabled)   { background: #38a169; transform: translateY(-1px); }
+    .btn-danger:hover:not(:disabled)    { background: #e53e3e; transform: translateY(-1px); }
+    .btn-secondary:hover:not(:disabled) { background: #4a5568; transform: translateY(-1px); }
+    .btn-warning:hover:not(:disabled)   { background: #dd6b20; transform: translateY(-1px); }
+
+    .main-layout {
+      display: grid; grid-template-columns: 1fr 340px; gap: 16px;
+    }
+    @media (max-width: 900px) { .main-layout { grid-template-columns: 1fr; } }
+
+    .card {
+      background: white; border-radius: 12px; padding: 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2); margin-bottom: 16px;
+    }
+    .card-title {
+      font-size: 1.05em; font-weight: bold; color: #333;
+      margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;
+    }
+
+    .script-editor {
+      width: 100%; height: 340px; font-family: 'Courier New', monospace;
+      font-size: 13px; border: 2px solid #e0e0e0; border-radius: 8px;
+      padding: 12px; resize: vertical; outline: none; line-height: 1.6;
+    }
+    .script-editor:focus { border-color: #2d6a4f; }
+
+    .editor-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+
+    .console {
+      background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 8px;
+      font-family: 'Courier New', monospace; font-size: 12px;
+      height: 180px; overflow-y: auto;
+    }
+    .console-line { margin-bottom: 3px; }
+    .console-info    { color: #4fc3f7; }
+    .console-success { color: #66bb6a; }
+    .console-error   { color: #ef5350; }
+    .console-warning { color: #ffa726; }
+
+    .progress-bar {
+      width: 100%; height: 8px; background: #e0e0e0;
+      border-radius: 4px; overflow: hidden; margin-bottom: 8px;
+    }
+    .progress-fill {
+      height: 100%; background: linear-gradient(90deg, #2d6a4f 0%, #48bb78 100%);
+      width: 0%; transition: width 0.3s;
+    }
+    .status-info {
+      padding: 9px 13px; background: #f0fff4; border-left: 4px solid #2d6a4f;
+      border-radius: 5px; font-size: 0.88em; color: #1b4332;
+    }
+
+    .servo-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 7px;
+    }
+    .servo-item {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      padding: 7px; border-radius: 8px; text-align: center;
+    }
+    .servo-title { font-size: 0.72em; font-weight: bold; color: #555; }
+    .servo-value { font-size: 1.05em; font-weight: bold; color: #2d6a4f; }
+
+    .ros2-badge {
+      background: #22543d; color: white; padding: 3px 10px;
+      border-radius: 12px; font-size: 0.78em; font-weight: bold;
+    }
+
+    .port-info {
+      font-size: 0.8em; color: #718096; margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🤖 ESP32 Servo Controller <span class="ros2-badge">ROS2</span></h1>
+      <p>servo_bridge_node + script_runner_node 経由でROS2トピックに送信 &nbsp;|&nbsp;
+        <a href="block_editor/index.html">ブロックエディタへ</a></p>
+    </div>
+
+    <!-- 接続バー -->
+    <div class="connection-bar">
+      <label>🖥️ ホスト:</label>
+      <input type="text" id="hostInput" placeholder="localhost" value="localhost">
+      <label>ポート:</label>
+      <input type="text" id="bridgePortInput" placeholder="8080" value="8080" style="width:70px">
+      <button class="btn btn-primary" id="connectBtn">🔌 接続テスト</button>
+      <span class="status-badge status-disconnected" id="statusBadge">未接続</span>
+      <div style="flex:1"></div>
+      <button class="btn btn-warning"   id="uploadBtn">📤 アップロード</button>
+      <button class="btn btn-success"   id="executeBtn" disabled>▶️ 実行</button>
+      <button class="btn btn-danger"    id="stopBtn"    disabled>⏹️ 停止</button>
+    </div>
+
+    <div class="main-layout">
+      <!-- 左: エディタ -->
+      <div>
+        <div class="card">
+          <div class="card-title">📝 スクリプトエディタ
+            <span class="port-info">script_runner_node: ポート 8081</span>
+          </div>
+          <div class="editor-toolbar">
+            <button class="btn btn-secondary" id="clearBtn">🗑️ クリア</button>
+            <button class="btn btn-secondary" id="loadSampleBtn">📚 サンプル</button>
+            <button class="btn btn-secondary" id="openFileBtn">📂 ファイルを開く</button>
+            <button class="btn btn-primary"   id="saveBtn">💾 保存</button>
+            <input type="file" id="fileInput" accept=".txt,.script" style="display:none">
+          </div>
+          <textarea class="script-editor" id="scriptEditor" spellcheck="false"># ROS2版 サーボ制御スクリプト
+# servo_bridge_node (port 8080) / script_runner_node (port 8081) 経由で
+# /servo_command, /servos_command トピックにパブリッシュされます
+
+servo 0 90
+wait 500
+servo 0 0
+wait 500
+servo 0 180
+wait 500
+servo 0 90
+</textarea>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div class="card-title" style="margin-bottom:0;border:none;padding:0;">🖥️ コンソール</div>
+            <button class="btn btn-secondary" id="clearConsoleBtn" style="padding:4px 10px;font-size:0.8em;">クリア</button>
+          </div>
+          <div class="console" id="consoleDiv"></div>
+        </div>
+      </div>
+
+      <!-- 右: 状態パネル -->
+      <div>
+        <div class="card">
+          <div class="card-title">📊 実行状態</div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="status-info" id="scriptStatus">待機中</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🎛️ サーボ状態
+            <span class="port-info">servo_bridge_node: ポート 8080</span>
+          </div>
+          <div class="servo-grid" id="servoGrid"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🤖 ROS2 トピック</div>
+          <div style="font-size:0.82em;line-height:1.8;color:#4a5568;">
+            <div>📥 <code>/servo_command</code></div>
+            <div style="padding-left:12px;color:#718096;">Int32MultiArray [ch, angle]</div>
+            <div>📥 <code>/servos_command</code></div>
+            <div style="padding-left:12px;color:#718096;">Int32MultiArray [ch0, a0, ...]</div>
+            <div>📤 <code>/servo_state</code></div>
+            <div style="padding-left:12px;color:#718096;">Int32MultiArray [a0..a9]</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    'use strict';
+
+    const NUM_SERVOS = 10;
+    let isConnected       = false;
+    let isScriptUploaded  = false;
+    let statusCheckInterval = null;
+
+    const hostInput       = document.getElementById('hostInput');
+    const bridgePortInput = document.getElementById('bridgePortInput');
+    const connectBtn      = document.getElementById('connectBtn');
+    const uploadBtn       = document.getElementById('uploadBtn');
+    const executeBtn      = document.getElementById('executeBtn');
+    const stopBtn         = document.getElementById('stopBtn');
+    const clearBtn        = document.getElementById('clearBtn');
+    const loadSampleBtn   = document.getElementById('loadSampleBtn');
+    const openFileBtn     = document.getElementById('openFileBtn');
+    const saveBtn         = document.getElementById('saveBtn');
+    const fileInput       = document.getElementById('fileInput');
+    const scriptEditor    = document.getElementById('scriptEditor');
+    const consoleDiv      = document.getElementById('consoleDiv');
+    const statusBadge     = document.getElementById('statusBadge');
+    const progressFill    = document.getElementById('progressFill');
+    const scriptStatus    = document.getElementById('scriptStatus');
+    const servoGrid       = document.getElementById('servoGrid');
+    const clearConsoleBtn = document.getElementById('clearConsoleBtn');
+
+    function getBridgeUrl() {
+      const host = hostInput.value.trim() || 'localhost';
+      const port = bridgePortInput.value.trim() || '8080';
+      localStorage.setItem('ros2_host', host);
+      localStorage.setItem('ros2_bridge_port', port);
+      return `http://${host}:${port}`;
+    }
+
+    function getRunnerUrl() {
+      const host = hostInput.value.trim() || 'localhost';
+      return `http://${host}:8081`;
+    }
+
+    function loadSavedSettings() {
+      const host = localStorage.getItem('ros2_host');
+      const port = localStorage.getItem('ros2_bridge_port');
+      if (host) hostInput.value = host;
+      if (port) bridgePortInput.value = port;
+    }
+
+    function initServoGrid() {
+      servoGrid.innerHTML = '';
+      for (let i = 0; i < NUM_SERVOS; i++) {
+        const item = document.createElement('div');
+        item.className = 'servo-item';
+        item.innerHTML = `<div class="servo-title">CH${i}</div><div class="servo-value" id="sv-${i}">90°</div>`;
+        servoGrid.appendChild(item);
+      }
+    }
+
+    function updateServoGrid(servos) {
+      if (!Array.isArray(servos)) return;
+      servos.forEach(s => {
+        const el = document.getElementById(`sv-${s.channel}`);
+        if (el) el.textContent = `${s.angle}°`;
+      });
+    }
+
+    function logConsole(level, message) {
+      const line = document.createElement('div');
+      line.className = `console-line console-${level}`;
+      const now = new Date();
+      const ts  = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+      line.textContent = `[${ts}] ${message}`;
+      consoleDiv.appendChild(line);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+
+    async function testConnection() {
+      const url = getBridgeUrl();
+      connectBtn.disabled = true;
+      logConsole('info', `接続テスト中: ${url}`);
+      try {
+        const res = await fetch(`${url}/api/servo/status`, { signal: AbortSignal.timeout(4000) });
+        if (res.ok) {
+          const data = await res.json();
+          isConnected = true;
+          statusBadge.textContent = '接続済み';
+          statusBadge.className   = 'status-badge status-connected';
+          logConsole('success', 'servo_bridge_node に接続しました');
+          updateServoGrid(data.servos);
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (err) {
+        isConnected = false;
+        statusBadge.textContent = '未接続';
+        statusBadge.className   = 'status-badge status-disconnected';
+        logConsole('error', `接続失敗: ${err.message}`);
+      } finally {
+        connectBtn.disabled = false;
+      }
+    }
+
+    async function uploadScript() {
+      const script = scriptEditor.value.trim();
+      if (!script) { logConsole('warning', 'スクリプトが空です'); return; }
+      logConsole('info', 'スクリプトをアップロード中...');
+      try {
+        const res = await fetch(`${getRunnerUrl()}/api/script/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ script }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          isScriptUploaded = true;
+          executeBtn.disabled = false;
+          logConsole('success', `アップロード完了 (${data.lines} 行)`);
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (err) {
+        logConsole('error', `アップロード失敗: ${err.message}`);
+      }
+    }
+
+    async function executeScript() {
+      executeBtn.disabled = true;
+      logConsole('info', 'スクリプト実行を開始します...');
+      try {
+        const res = await fetch(`${getRunnerUrl()}/api/script/execute`, { method: 'POST' });
+        if (res.ok) {
+          stopBtn.disabled = false;
+          logConsole('success', 'スクリプト実行を開始しました');
+          startStatusCheck();
+        } else {
+          throw new Error(`HTTP ${res.status}`);
+        }
+      } catch (err) {
+        executeBtn.disabled = false;
+        logConsole('error', `実行エラー: ${err.message}`);
+      }
+    }
+
+    async function stopScript() {
+      try {
+        const res = await fetch(`${getRunnerUrl()}/api/script/stop`, { method: 'POST' });
+        if (res.ok) {
+          stopBtn.disabled    = true;
+          executeBtn.disabled = !isScriptUploaded;
+          logConsole('warning', 'スクリプトを停止しました');
+          stopStatusCheck();
+          progressFill.style.width = '0%';
+          scriptStatus.textContent = '停止しました';
+        }
+      } catch (err) {
+        logConsole('error', `停止エラー: ${err.message}`);
+      }
+    }
+
+    function startStatusCheck() {
+      statusCheckInterval = setInterval(async () => {
+        try {
+          const res = await fetch(`${getRunnerUrl()}/api/script/status`);
+          if (!res.ok) return;
+          const data = await res.json();
+          const pct  = data.total_lines > 0
+            ? Math.round((data.current_line / data.total_lines) * 100) : 0;
+          progressFill.style.width  = `${pct}%`;
+          scriptStatus.textContent  = data.is_executing
+            ? `実行中: ${data.current_line} / ${data.total_lines} 行 (${pct}%)`
+            : '実行完了';
+          if (!data.is_executing) {
+            stopStatusCheck();
+            stopBtn.disabled    = true;
+            executeBtn.disabled = false;
+            logConsole('success', 'スクリプト実行が完了しました');
+            fetchServoStatus();
+          }
+        } catch (_) { /* 無視 */ }
+      }, 500);
+    }
+
+    function stopStatusCheck() {
+      if (statusCheckInterval) { clearInterval(statusCheckInterval); statusCheckInterval = null; }
+    }
+
+    async function fetchServoStatus() {
+      try {
+        const res = await fetch(`${getBridgeUrl()}/api/servos`);
+        if (res.ok) {
+          const data = await res.json();
+          updateServoGrid(data.servos);
+        }
+      } catch (_) { /* 無視 */ }
+    }
+
+    function loadSample() {
+      scriptEditor.value = `# サンプル: Wave動作
+# servo_bridge_node -> /servo_command トピックへパブリッシュ
+
+servo 0 0
+wait 500
+servo 0 180
+wait 500
+servo 0 90
+wait 500
+servos 0:45 1:135 2:45
+wait 1000
+servos 0:90 1:90 2:90
+`;
+      logConsole('info', 'サンプルスクリプトを読み込みました');
+    }
+
+    function openFile() { fileInput.click(); }
+
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        scriptEditor.value = ev.target.result;
+        logConsole('success', `"${file.name}" を読み込みました`);
+      };
+      reader.readAsText(file, 'UTF-8');
+      fileInput.value = '';
+    });
+
+    function saveScript() {
+      const script = scriptEditor.value;
+      if (!script.trim()) { logConsole('warning', '保存するスクリプトがありません'); return; }
+      const blob = new Blob([script], { type: 'text/plain;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      const ts   = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+      a.href = url; a.download = `script_${ts}.txt`; a.click();
+      URL.revokeObjectURL(url);
+      logConsole('success', `スクリプトを保存しました: ${a.download}`);
+    }
+
+    connectBtn.addEventListener('click', testConnection);
+    uploadBtn.addEventListener('click', uploadScript);
+    executeBtn.addEventListener('click', executeScript);
+    stopBtn.addEventListener('click', stopScript);
+    clearBtn.addEventListener('click', () => { scriptEditor.value = ''; });
+    clearConsoleBtn.addEventListener('click', () => { consoleDiv.innerHTML = ''; });
+    loadSampleBtn.addEventListener('click', loadSample);
+    openFileBtn.addEventListener('click', openFile);
+    saveBtn.addEventListener('click', saveScript);
+
+    loadSavedSettings();
+    initServoGrid();
+  </script>
+</body>
+</html>
