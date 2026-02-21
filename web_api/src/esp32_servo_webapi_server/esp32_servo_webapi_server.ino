@@ -3,12 +3,38 @@
 // https://github.com/tomorrow56/esp32-servo-controller
 
 #include <WiFi.h>
+#include <SimpleWiFiManager.h>
+#include <WebServer.h>
+#include <ESP32FwUploader.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <ESP32Servo.h>
 #include <ArduinoJson.h>
 
-// ===== Wi-Fi設定 =====
-const char* ssid = "your_wifi_ssid";
-const char* password = "your_wifi_password";
+// ===== OTA設定 =====
+static const char* OTA_USERNAME = "admin";
+static const char* OTA_PASSWORD = "password123";
+static const uint16_t OTA_PORT  = 8080;
+WebServer otaServer(OTA_PORT);
+
+// ===== OLED設定 (SSD1306 128x32) =====
+#define OLED_SDA     21
+#define OLED_SCL     22
+#define OLED_ADDR    0x3C
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 32
+#define OLED_RESET   -1
+
+Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+bool oledAvailable = false;
+
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 2
+#endif
+
+// ===== Wi-Fi設定（WiFiManagerで自動設定） =====
+// 接続失敗時: AP "ESP32-ServoAP" が起動 → 192.168.4.1 でSSID/パスワードを設定
 
 // ===== サーボ設定 =====
 const int numServos = 10;
@@ -26,10 +52,38 @@ TaskHandle_t scriptTaskHandle = NULL;
 // ===== Webサーバー設定 =====
 WiFiServer server(80);
 
+// ===== OLED表示ヘルパー =====
+void oledPrint(const String &line1, const String &line2 = "", const String &line3 = "") {
+  if (!oledAvailable) return;
+  oled.clearDisplay();
+  oled.setTextSize(1);
+  oled.setTextColor(SSD1306_WHITE);
+  oled.setCursor(0, 0);  oled.println(line1);
+  oled.setCursor(0, 11); oled.println(line2);
+  oled.setCursor(0, 22); oled.println(line3);
+  oled.display();
+}
+
 void setup() {
   Serial.begin(115200);
-  
-  // サーボ初期化
+  pinMode(LED_BUILTIN, OUTPUT);
+
+  // ===== OLED初期化 =====
+  Wire.begin(OLED_SDA, OLED_SCL);
+  if (oled.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR)) {
+    oledAvailable = true;
+    oled.clearDisplay();
+    oled.setTextSize(1);
+    oled.setTextColor(SSD1306_WHITE);
+    oled.setCursor(0, 0);
+    oled.println("ESP32 ServoAPI");
+    oled.println("Initializing...");
+    oled.display();
+  } else {
+    Serial.println("OLED not found");
+  }
+
+  // ===== サーボ初期化 =====
   ESP32PWM::allocateTimer(0);
   ESP32PWM::allocateTimer(1);
   ESP32PWM::allocateTimer(2);
@@ -41,27 +95,82 @@ void setup() {
     servos[i].write(servoAngles[i]);
     delay(20);
   }
-  
   Serial.println("Servos initialized.");
-  
-  // Wi-Fi接続
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-  
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
+  oledPrint("ESP32 ServoAPI", "Servos OK", "WiFi connecting...");
+
+  // ===== SimpleWiFiManager =====
+  SimpleWiFiManager wm;
+  wm.setConfigPortalTimeout(120);
+  wm.setAPCallback([](SimpleWiFiManager *wm) {
+    Serial.println("Config portal started");
+    oledPrint("WiFi Setup AP", "ESP32-ServoAP", "192.168.4.1");
+    digitalWrite(LED_BUILTIN, HIGH);
+  });
+
+  if (!wm.autoConnect("ESP32-ServoAP")) {
+    Serial.println("WiFi connection failed. Restarting...");
+    oledPrint("WiFi Failed", "Restarting...");
+    delay(2000);
+    ESP.restart();
   }
-  
-  Serial.println("\nWiFi connected.");
+
+  Serial.println("WiFi connected.");
+  Serial.print("IP: ");
+  Serial.println(WiFi.localIP());
+  digitalWrite(LED_BUILTIN, LOW);
+  oledPrint("ESP32 ServoAPI", WiFi.localIP().toString(), "Port: 80");
+
+  // ===== ESP32FwUploader (OTA) =====
+  ESP32FwUploader.setDebug(true);
+  ESP32FwUploader.setDarkMode(false);
+  ESP32FwUploader.setAuth(OTA_USERNAME, OTA_PASSWORD);
+  ESP32FwUploader.setAutoReboot(true);
+
+  ESP32FwUploader.onStart([]() {
+    Serial.println("[OTA] Started");
+    oledPrint("OTA Update", "Starting...");
+    digitalWrite(LED_BUILTIN, HIGH);
+  });
+  ESP32FwUploader.onProgress([](size_t current, size_t total) {
+    if (total > 0) {
+      int pct = (int)((float)current / (float)total * 100.0f);
+      Serial.printf("[OTA] Progress: %d%% (%u/%u bytes)\n", pct, (unsigned)current, (unsigned)total);
+      oledPrint("OTA Update", String(pct) + "%");
+      digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+    }
+  });
+  ESP32FwUploader.onEnd([](bool success) {
+    Serial.printf("[OTA] End: %s\n", success ? "SUCCESS" : "FAILED");
+    if (success) {
+      oledPrint("OTA Update", "Complete!", "Rebooting...");
+    } else {
+      oledPrint("OTA Failed", ESP32FwUploader.getLastErrorMessage());
+    }
+    digitalWrite(LED_BUILTIN, LOW);
+  });
+  ESP32FwUploader.onError([](ESP32Fw_Error error, const String& message) {
+    Serial.printf("[OTA] Error %d: %s\n", error, message.c_str());
+    oledPrint("OTA Error", message);
+  });
+
+  ESP32FwUploader.begin(&otaServer);
+  otaServer.begin();
+  Serial.printf("OTA server started on port %u\n", OTA_PORT);
+  Serial.printf("OTA URL: http://%s:%u/update\n", WiFi.localIP().toString().c_str(), OTA_PORT);
+  Serial.printf("OTA Username: %s\n", OTA_USERNAME);
+  Serial.printf("OTA Password: %s\n", OTA_PASSWORD);
+
+  // ===== HTTPサーバー起動 =====
   server.begin();
   Serial.println("Server started.");
-  Serial.print("IP Address: http://");
-  Serial.println(WiFi.localIP());
+  Serial.printf("URL: http://%s\n", WiFi.localIP().toString().c_str());
+  oledPrint("Ready!", WiFi.localIP().toString(), "OTA port:" + String(OTA_PORT));
 }
 
 void loop() {
+  otaServer.handleClient();
+  ESP32FwUploader.loop();
+
   WiFiClient client = server.available();
   
   if (client) {
