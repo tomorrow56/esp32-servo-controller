@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 tomorrow56
-// https://github.com/tomorrow56/esp32-webapi-servo-controller
+// https://github.com/tomorrow56/esp32-servo-controller
 
 #include <WiFi.h>
 #include <ESP32Servo.h>
