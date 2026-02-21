@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Servo Script Controller</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .header p {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .card-title {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .status-badge {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+
+    .status-disconnected {
+      background: #fee;
+      color: #c33;
+    }
+
+    .status-connected {
+      background: #efe;
+      color: #3c3;
+    }
+
+    .status-running {
+      background: #ffa;
+      color: #aa6;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn-success {
+      background: #48bb78;
+      color: white;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #38a169;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn-danger {
+      background: #f56565;
+      color: white;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #e53e3e;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn-secondary {
+      background: #718096;
+      color: white;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #4a5568;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+
+    .file-input-wrapper input[type=file] {
+      position: absolute;
+      left: -9999px;
+    }
+
+    .file-name {
+      padding: 10px;
+      background: #f7fafc;
+      border-radius: 5px;
+      margin-top: 10px;
+      font-family: monospace;
+      color: #4a5568;
+    }
+
+    .editor-container {
+      margin-top: 15px;
+    }
+
+    .code-editor {
+      width: 100%;
+      min-height: 400px;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      resize: vertical;
+      background: #1e1e1e;
+      color: #d4d4d4;
+    }
+
+    .console {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      height: 400px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+
+    .console-line {
+      margin-bottom: 5px;
+      padding: 3px 0;
+    }
+
+    .console-info {
+      color: #4fc3f7;
+    }
+
+    .console-success {
+      color: #66bb6a;
+    }
+
+    .console-error {
+      color: #ef5350;
+    }
+
+    .console-warning {
+      color: #ffa726;
+    }
+
+    .servo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .servo-item {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .servo-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .servo-value {
+      font-size: 1.8em;
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 15px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .example-scripts {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f7fafc;
+      border-radius: 8px;
+    }
+
+    .example-scripts h3 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .example-btn {
+      display: inline-block;
+      margin: 5px;
+      padding: 8px 16px;
+      background: #667eea;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background 0.3s;
+    }
+
+    .example-btn:hover {
+      background: #5568d3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🤖 ESP32 Servo Script Controller</h1>
+      <p>Web Serial API経由でスクリプト制御</p>
+    </div>
+
+    <div class="main-grid">
+      <!-- 左側: 接続とスクリプト編集 -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">接続</div>
+            <div class="status-badge" id="statusBadge">未接続</div>
+          </div>
+          
+          <div class="btn-group">
+            <button class="btn btn-primary" id="connectBtn">
+              <span>🔌</span> ESP32に接続
+            </button>
+            <button class="btn btn-danger" id="disconnectBtn" disabled>
+              <span>🔌</span> 切断
+            </button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header">
+            <div class="card-title">スクリプト</div>
+          </div>
+          
+          <div class="btn-group">
+            <div class="file-input-wrapper">
+              <button class="btn btn-secondary">
+                <span>📁</span> ファイルを開く
+              </button>
+              <input type="file" id="fileInput" accept=".txt,.script">
+            </div>
+            <button class="btn btn-secondary" id="saveBtn">
+              <span>💾</span> 保存
+            </button>
+            <button class="btn btn-success" id="runBtn" disabled>
+              <span>▶️</span> 実行
+            </button>
+            <button class="btn btn-danger" id="stopBtn" disabled>
+              <span>⏹️</span> 停止
+            </button>
+          </div>
+
+          <div class="file-name" id="fileName">ファイル未選択</div>
+
+          <div class="editor-container">
+            <textarea class="code-editor" id="codeEditor" placeholder="# スクリプトをここに入力
+# 例:
+servo 0 90
+wait 1000
+servo 0 0"></textarea>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+
+          <div class="example-scripts">
+            <h3>サンプルスクリプト</h3>
+            <div class="example-btn" onclick="loadExample('wave')">Wave</div>
+            <div class="example-btn" onclick="loadExample('sweep')">Sweep</div>
+            <div class="example-btn" onclick="loadExample('dance')">Dance</div>
+            <div class="example-btn" onclick="loadExample('robot_arm')">Robot Arm</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側: コンソールとサーボ状態 -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">コンソール</div>
+            <button class="btn btn-secondary" onclick="clearConsole()" style="padding: 8px 16px; font-size: 0.9em;">
+              クリア
+            </button>
+          </div>
+          <div class="console" id="console"></div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header">
+            <div class="card-title">サーボ状態</div>
+            <button class="btn btn-secondary" onclick="refreshServos()" style="padding: 8px 16px; font-size: 0.9em;">
+              更新
+            </button>
+          </div>
+          <div class="servo-grid" id="servoGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="servo_controller.js"></script>
+</body>
+</html>

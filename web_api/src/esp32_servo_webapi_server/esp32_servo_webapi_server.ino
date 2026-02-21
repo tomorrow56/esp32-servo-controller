@@ -1,3 +1,7 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 tomorrow56
+// https://github.com/tomorrow56/esp32-webapi-servo-controller
+
 #include <WiFi.h>
 #include <ESP32Servo.h>
 #include <ArduinoJson.h>
@@ -8,14 +12,14 @@ const char* password = "your_wifi_password";
 
 // ===== サーボ設定 =====
 const int numServos = 10;
-const int servoPins[numServos] = {23, 22, 21, 19, 18, 5, 17, 16, 4, 12};
+const int servoPins[numServos] = {23, 19, 18, 5, 17, 16, 4, 27, 14, 12};
 Servo servos[numServos];
 int servoAngles[numServos];
 
 // ===== スクリプト実行設定 =====
 String currentScript = "";
-bool isExecuting = false;
-int currentLine = 0;
+volatile bool isExecuting = false;
+volatile int currentLine = 0;
 int totalLines = 0;
 TaskHandle_t scriptTaskHandle = NULL;
 
@@ -62,7 +66,7 @@ void loop() {
   
   if (client) {
     Serial.println("New Client.");
-    String currentLine = "";
+    String headerLine = "";
     String requestMethod = "";
     String requestPath = "";
     String requestBody = "";
@@ -81,7 +85,7 @@ void loop() {
           }
         } else {
           if (c == '\n') {
-            if (currentLine.length() == 0) {
+            if (headerLine.length() == 0) {
               if (contentLength > 0 && requestMethod == "POST") {
                 isBodyReading = true;
               } else {
@@ -89,22 +93,23 @@ void loop() {
                 break;
               }
             } else {
-              if (currentLine.startsWith("GET ") || currentLine.startsWith("POST ") || 
-                  currentLine.startsWith("PUT ") || currentLine.startsWith("DELETE ")) {
-                int firstSpace = currentLine.indexOf(' ');
-                int secondSpace = currentLine.indexOf(' ', firstSpace + 1);
-                requestMethod = currentLine.substring(0, firstSpace);
-                requestPath = currentLine.substring(firstSpace + 1, secondSpace);
+              if (headerLine.startsWith("GET ") || headerLine.startsWith("POST ") || 
+                  headerLine.startsWith("PUT ") || headerLine.startsWith("DELETE ") ||
+                  headerLine.startsWith("OPTIONS ")) {
+                int firstSpace = headerLine.indexOf(' ');
+                int secondSpace = headerLine.indexOf(' ', firstSpace + 1);
+                requestMethod = headerLine.substring(0, firstSpace);
+                requestPath = headerLine.substring(firstSpace + 1, secondSpace);
               }
               
-              if (currentLine.startsWith("Content-Length: ")) {
-                contentLength = currentLine.substring(16).toInt();
+              if (headerLine.startsWith("Content-Length: ")) {
+                contentLength = headerLine.substring(16).toInt();
               }
               
-              currentLine = "";
+              headerLine = "";
             }
           } else if (c != '\r') {
-            currentLine += c;
+            headerLine += c;
           }
         }
       }
@@ -124,7 +129,9 @@ void handleRequest(WiFiClient &client, String method, String path, String body) 
   Serial.print("Body: ");
   Serial.println(body);
   
-  if (path == "/" && method == "GET") {
+  if (method == "OPTIONS") {
+    sendCORSResponse(client);
+  } else if (path == "/" && method == "GET") {
     serveWebUI(client);
   } else if (path == "/api/script/upload" && method == "POST") {
     handleScriptUpload(client, body);
@@ -162,7 +169,7 @@ void handleScriptUpload(WiFiClient &client, String body) {
   currentScript = doc["script"].as<String>();
   
   // 行数をカウント
-  totalLines = 1;
+  totalLines = (currentScript.length() == 0) ? 0 : 1;
   for (int i = 0; i < currentScript.length(); i++) {
     if (currentScript.charAt(i) == '\n') totalLines++;
   }
@@ -223,64 +230,130 @@ void handleScriptStatus(WiFiClient &client) {
   sendJSONResponse(client, 200, response);
 }
 
+// ===== 条件評価ヘルパー =====
+bool evaluateCondition(String args) {
+  // 書式: servo<ch> <op> <angle>
+  // 例: servo0 >= 90
+  int sp1 = args.indexOf(' ');
+  if (sp1 < 0) return false;
+  String lhs = args.substring(0, sp1);
+  lhs.trim();
+
+  String rest = args.substring(sp1 + 1);
+  rest.trim();
+
+  // 演算子を抽出
+  String op = "";
+  int valStart = 0;
+  if (rest.startsWith(">=")) { op = ">="; valStart = 2; }
+  else if (rest.startsWith("<=")) { op = "<="; valStart = 2; }
+  else if (rest.startsWith("!=")) { op = "!="; valStart = 2; }
+  else if (rest.startsWith("==")) { op = "=="; valStart = 2; }
+  else if (rest.startsWith(">"))  { op = ">";  valStart = 1; }
+  else if (rest.startsWith("<"))  { op = "<";  valStart = 1; }
+  else if (rest.startsWith("="))  { op = "=="; valStart = 1; }
+  else return false;
+
+  int rhs = rest.substring(valStart).toInt();
+
+  // 左辺の値を取得
+  int lhsVal = 0;
+  lhs.toLowerCase();
+  if (lhs.startsWith("servo")) {
+    int ch = lhs.substring(5).toInt();
+    if (ch >= 0 && ch < numServos) lhsVal = servoAngles[ch];
+  }
+
+  if (op == "==") return lhsVal == rhs;
+  if (op == "!=") return lhsVal != rhs;
+  if (op == ">")  return lhsVal >  rhs;
+  if (op == ">=") return lhsVal >= rhs;
+  if (op == "<")  return lhsVal <  rhs;
+  if (op == "<=") return lhsVal <= rhs;
+  return false;
+}
+
 void scriptExecutionTask(void *parameter) {
   Serial.println("Script execution started");
-  
-  // スクリプトを行ごとに分割
+
+  // スクリプトを行配列に分割
+  const int MAX_LINES = 512;
+  String lines[MAX_LINES];
+  int lineCount = 0;
+
   int lineStart = 0;
-  currentLine = 0;
-  
-  while (lineStart < currentScript.length() && isExecuting) {
+  while (lineStart < (int)currentScript.length() && lineCount < MAX_LINES) {
     int lineEnd = currentScript.indexOf('\n', lineStart);
     if (lineEnd == -1) lineEnd = currentScript.length();
-    
-    String line = currentScript.substring(lineStart, lineEnd);
-    line.trim();
-    
-    currentLine++;
-    
-    if (line.length() > 0 && !line.startsWith("#") && !line.startsWith("//")) {
-      executeScriptLine(line);
-    }
-    
+    String ln = currentScript.substring(lineStart, lineEnd);
+    ln.trim();
+    lines[lineCount++] = ln;
     lineStart = lineEnd + 1;
   }
-  
+  totalLines = lineCount;
+  currentLine = 0;
+
+  // if/else/endif スタック（最大ネスト8段）
+  const int MAX_NEST = 8;
+  bool execStack[MAX_NEST];
+  bool inElseStack[MAX_NEST];
+  int nestDepth = 0;
+  execStack[0]  = true;
+  inElseStack[0] = false;
+
+  int i = 0;
+  while (i < lineCount && isExecuting) {
+    currentLine = i + 1;
+    String line = lines[i];
+    i++;
+
+    if (line.length() == 0 || line.startsWith("//")) continue;
+
+    // コメントはスキップ（if/else/endifは除く）
+    if (line.startsWith("#")) continue;
+
+    // コマンドと引数を分離
+    int sp = line.indexOf(' ');
+    String cmd = (sp > 0) ? line.substring(0, sp) : line;
+    String args = (sp > 0) ? line.substring(sp + 1) : String("");
+    cmd.toLowerCase();
+    args.trim();
+
+    bool executing = execStack[nestDepth];
+
+    if (cmd == "if") {
+      if (nestDepth < MAX_NEST - 1) nestDepth++;
+      bool cond = executing ? evaluateCondition(args) : false;
+      execStack[nestDepth]   = cond;
+      inElseStack[nestDepth] = false;
+    } else if (cmd == "else") {
+      if (nestDepth > 0 && !inElseStack[nestDepth]) {
+        execStack[nestDepth]   = execStack[nestDepth - 1] && !execStack[nestDepth];
+        inElseStack[nestDepth] = true;
+      }
+    } else if (cmd == "endif") {
+      if (nestDepth > 0) nestDepth--;
+    } else if (executing) {
+      if (cmd == "servo") {
+        executeServoCommand(args);
+      } else if (cmd == "servos") {
+        executeServosCommand(args);
+      } else if (cmd == "wait") {
+        int duration = args.toInt();
+        delay(duration);
+      } else {
+        Serial.print("Unknown command: ");
+        Serial.println(cmd);
+      }
+    }
+  }
+
   isExecuting = false;
+  scriptTaskHandle = NULL;
   Serial.println("Script execution completed");
   vTaskDelete(NULL);
 }
 
-void executeScriptLine(String line) {
-  Serial.print("Executing: ");
-  Serial.println(line);
-  
-  // コマンドを解析
-  int spaceIndex = line.indexOf(' ');
-  String cmd = "";
-  String args = "";
-  
-  if (spaceIndex > 0) {
-    cmd = line.substring(0, spaceIndex);
-    args = line.substring(spaceIndex + 1);
-  } else {
-    cmd = line;
-  }
-  
-  cmd.toLowerCase();
-  
-  if (cmd == "servo") {
-    executeServoCommand(args);
-  } else if (cmd == "servos") {
-    executeServosCommand(args);
-  } else if (cmd == "wait") {
-    int duration = args.toInt();
-    delay(duration);
-  } else {
-    Serial.print("Unknown command: ");
-    Serial.println(cmd);
-  }
-}
 
 void executeServoCommand(String args) {
   int spaceIndex = args.indexOf(' ');
@@ -401,6 +474,15 @@ void handleGetServosStatus(WiFiClient &client) {
   sendJSONResponse(client, 200, response);
 }
 
+void sendCORSResponse(WiFiClient &client) {
+  client.println("HTTP/1.1 204 No Content");
+  client.println("Access-Control-Allow-Origin: *");
+  client.println("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+  client.println("Access-Control-Allow-Headers: Content-Type");
+  client.println("Connection: close");
+  client.println();
+}
+
 void sendJSONResponse(WiFiClient &client, int statusCode, String jsonBody) {
   String statusText = "OK";
   if (statusCode == 400) statusText = "Bad Request";
@@ -409,6 +491,8 @@ void sendJSONResponse(WiFiClient &client, int statusCode, String jsonBody) {
   client.println("HTTP/1.1 " + String(statusCode) + " " + statusText);
   client.println("Content-Type: application/json");
   client.println("Access-Control-Allow-Origin: *");
+  client.println("Access-Control-Allow-Methods: GET, POST, OPTIONS");
+  client.println("Access-Control-Allow-Headers: Content-Type");
   client.println("Connection: close");
   client.println();
   client.println(jsonBody);
@@ -416,7 +500,8 @@ void sendJSONResponse(WiFiClient &client, int statusCode, String jsonBody) {
 
 void serveWebUI(WiFiClient &client) {
   client.println("HTTP/1.1 200 OK");
-  client.println("Content-type:text/html");
+  client.println("Content-Type: text/html");
+  client.println("Access-Control-Allow-Origin: *");
   client.println("Connection: close");
   client.println();
   

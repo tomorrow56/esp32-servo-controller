@@ -5,9 +5,25 @@
 *.map
 *.sym
 
-# OS
+# OS - macOS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# OS - Windows
 Thumbs.db
+ehthumbs.db
+Desktop.ini
 
 # Archives
 *.zip

@@ -1,3 +1,8 @@
+<!--
+  SPDX-License-Identifier: MIT
+  Copyright (c) 2026 tomorrow56
+  https://github.com/tomorrow56/esp32-webapi-servo-controller
+-->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -424,6 +429,8 @@ servo 0 90"></textarea>
             <div class="example-btn" onclick="loadExample('sweep')">Sweep</div>
             <div class="example-btn" onclick="loadExample('dance')">Dance</div>
             <div class="example-btn" onclick="loadExample('sequence')">Sequence</div>
+            <div class="example-btn" onclick="loadExample('robot_arm')">Robot Arm</div>
+            <div class="example-btn" onclick="loadExample('walking_robot')">Walking Robot</div>
           </div>
         </div>
       </div>
@@ -607,6 +614,7 @@ servo 0 90"></textarea>
           throw new Error('実行失敗');
         }
       } catch (error) {
+        executeBtn.disabled = false;
         logConsole('error', `実行エラー: ${error.message}`);
       }
     }
@@ -620,10 +628,11 @@ servo 0 90"></textarea>
 
         if (response.ok) {
           stopBtn.disabled = true;
-          executeBtn.disabled = false;
+          executeBtn.disabled = !isScriptUploaded;
           logConsole('warning', 'スクリプトを停止しました');
           stopStatusCheck();
           progressFill.style.width = '0%';
+          scriptStatus.textContent = '停止しました';
         }
       } catch (error) {
         logConsole('error', `停止エラー: ${error.message}`);
@@ -837,6 +846,47 @@ servo 4 0
 wait 1000
 
 servos 0:90 1:90 2:90 3:90 4:90`;
+          break;
+
+        case 'robot_arm':
+          script = `# Robot Arm Example
+# ロボットアームの動作シーケンス
+
+servos 0:90 1:90 2:90 3:90 4:90
+wait 1000
+
+servo 0 45
+wait 500
+servo 1 120
+wait 500
+servo 2 60
+wait 500
+servo 3 90
+wait 500
+
+servos 0:90 1:90 2:90 3:90 4:90
+wait 1000`;
+          break;
+
+        case 'walking_robot':
+          script = `# Walking Robot Example
+# 歩行ロボットの動作シーケンス
+
+servos 0:90 1:90 2:90 3:90 4:90 5:90
+wait 500
+
+servos 0:60 2:120 4:60
+wait 300
+servos 1:120 3:60 5:120
+wait 300
+
+servos 0:120 2:60 4:120
+wait 300
+servos 1:60 3:120 5:60
+wait 300
+
+servos 0:90 1:90 2:90 3:90 4:90 5:90
+wait 500`;
           break;
       }
 
