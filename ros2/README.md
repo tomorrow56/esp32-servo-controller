@@ -85,11 +85,55 @@ pip install micro-ros-agent
 ros2 run micro_ros_agent micro_ros_agent udp4 --port 8888
 ```
 
-### 4. ESP32への書き込み
+### 4. micro-ROS for Arduino ライブラリのインストール
 
-1. Arduino IDEに micro-ROS for Arduino ライブラリをインストール
-2. `src/esp32_servo_microros/esp32_servo_microros.ino` を開く
-3. Wi-Fi設定とAgentのIPアドレスを設定
+> ⚠️ micro-ROS for Arduino はライブラリマネージャに登録されていないため、**手動インストール**が必要です。
+
+#### 方法A: ZIPファイルから手動インストール（推奨）
+
+1. GitHubリリースページからZIPをダウンロード
+   - URL: `https://github.com/micro-ROS/micro_ros_arduino/releases`
+   - ROS2 Humble を使う場合は **`humble`** タグのリリースを選択
+   - `micro_ros_arduino-humble.zip` をダウンロード
+
+2. Arduino IDEでインストール
+
+   ```text
+   スケッチ → ライブラリをインクルード → .ZIP形式のライブラリをインストール
+   ```
+
+   ダウンロードした ZIP ファイルを選択
+
+3. インストール確認
+
+   ```text
+   スケッチ → ライブラリをインクルード → micro_ros_arduino が表示されればOK
+   ```
+
+#### 方法B: GitHubから直接クローン
+
+```bash
+# macOS の場合
+cd ~/Documents/Arduino/libraries
+git clone -b humble https://github.com/micro-ROS/micro_ros_arduino.git
+```
+
+クローン後、Arduino IDEを再起動してください。
+
+> **注意**: ライブラリのサイズが大きいため（約200MB）、ダウンロードに時間がかかります。
+
+#### インストール後の確認
+
+```text
+ファイル → スケッチ例 → micro_ros_arduino → micro-ros_publisher
+```
+
+が表示されればインストール成功です。
+
+### 5. ESP32への書き込み
+
+1. `src/esp32_servo_microros/esp32_servo_microros.ino` を開く
+2. Wi-Fi設定とAgentのIPアドレスを設定
 
    ```cpp
    #define WIFI_SSID     "your_wifi_ssid"
@@ -98,9 +142,9 @@ ros2 run micro_ros_agent micro_ros_agent udp4 --port 8888
    #define AGENT_PORT    8888
    ```
 
-4. ボードを `ESP32 Dev Module` に設定してスケッチを書き込む
+3. ボードを `ESP32 Dev Module` に設定してスケッチを書き込む
 
-### 5. ハードウェアの接続
+### 6. ハードウェアの接続
 
 | サーボ | GPIO | ボード表記 |
 | --- | --- | --- |
@@ -117,7 +161,7 @@ ros2 run micro_ros_agent micro_ros_agent udp4 --port 8888
 
 **重要**: 必ず外部電源を使用し、ESP32のGNDと外部電源のGNDを共通接続してください。
 
-### 6. ROS2ノードの起動
+### 7. ROS2ノードの起動
 
 ```bash
 # ターミナル1: servo_bridge_node + script_runner_node を同時起動
@@ -131,7 +175,7 @@ ros2 run servo_controller servo_bridge_node.py
 ros2 run servo_controller script_runner_node.py
 ```
 
-### 7. Webインターフェースの起動
+### 8. Webインターフェースの起動
 
 1. `web_ui/script_controller_ros2.html` または `web_ui/block_editor/index.html` をブラウザで開く
 2. ホスト名（デフォルト: `localhost`）を確認
