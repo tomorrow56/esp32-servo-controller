@@ -142,6 +142,10 @@ class ScriptRunnerNode(Node):
                             self.get_logger().error(
                                 f'servo: invalid argument "{arg}" - skipping')
                             continue
+                        if not (0 <= ch < NUM_SERVOS):
+                            self.get_logger().error(
+                                f'servo: channel {ch} out of range (0-{NUM_SERVOS - 1}) - skipping')
+                            continue
                         msg = Int32MultiArray()
                         msg.data = [ch, angle]
                         self.servo_pub.publish(msg)
@@ -160,6 +164,10 @@ class ScriptRunnerNode(Node):
                             except ValueError:
                                 self.get_logger().error(
                                     f'servos: invalid pair "{pair}" - skipping')
+                                continue
+                            if not (0 <= ch < NUM_SERVOS):
+                                self.get_logger().error(
+                                    f'servos: channel {ch} out of range (0-{NUM_SERVOS - 1}) - skipping')
                                 continue
                             pairs.append((ch, angle))
                             data.extend([ch, angle])
