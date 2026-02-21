@@ -306,9 +306,16 @@ void setup() {
 
   // ===== micro-ROS トランスポート設定（接続済みWi-Fiを使用） =====
   oledPrint("micro-ROS", "Connecting agent...", String(agentIp));
+  
+  // WiFi credentials must be stored in persistent buffers
+  char wifiSsid[40];
+  char wifiPassword[64];
+  WiFi.SSID().toCharArray(wifiSsid, sizeof(wifiSsid));
+  WiFi.psk().toCharArray(wifiPassword, sizeof(wifiPassword));
+  
   set_microros_wifi_transports(
-    const_cast<char*>(WiFi.SSID().c_str()),
-    const_cast<char*>(WiFi.psk().c_str()),
+    wifiSsid,
+    wifiPassword,
     agentIp,
     AGENT_PORT);
   delay(2000);
