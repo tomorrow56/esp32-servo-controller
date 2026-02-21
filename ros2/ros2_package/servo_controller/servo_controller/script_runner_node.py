@@ -135,9 +135,14 @@ class ScriptRunnerNode(Node):
                 if cmd == 'servo':
                     parts = arg.split()
                     if len(parts) >= 2:
-                        ch    = int(parts[0])
-                        angle = max(0, min(180, int(parts[1])))
-                        msg   = Int32MultiArray()
+                        try:
+                            ch    = int(parts[0])
+                            angle = max(0, min(180, int(parts[1])))
+                        except ValueError:
+                            self.get_logger().error(
+                                f'servo: invalid argument "{arg}" - skipping')
+                            continue
+                        msg = Int32MultiArray()
                         msg.data = [ch, angle]
                         self.servo_pub.publish(msg)
                         self.servo_angles[ch] = angle
@@ -148,9 +153,14 @@ class ScriptRunnerNode(Node):
                     data  = []
                     for pair in arg.split():
                         if ':' in pair:
-                            ch, angle = pair.split(':', 1)
-                            ch    = int(ch)
-                            angle = max(0, min(180, int(angle)))
+                            try:
+                                ch, angle = pair.split(':', 1)
+                                ch    = int(ch)
+                                angle = max(0, min(180, int(angle)))
+                            except ValueError:
+                                self.get_logger().error(
+                                    f'servos: invalid pair "{pair}" - skipping')
+                                continue
                             pairs.append((ch, angle))
                             data.extend([ch, angle])
                     if data:
