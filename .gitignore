@@ -1,0 +1,20 @@
+# Arduino
+*.hex
+*.eep
+*.elf
+*.map
+*.sym
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Archives
+*.zip
+*.tar.gz
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*~

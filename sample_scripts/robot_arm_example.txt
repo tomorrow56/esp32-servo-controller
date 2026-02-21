@@ -1,0 +1,38 @@
+# Robot Arm Example
+# ロボットアームの動作
+
+function init_position {
+  servos 0:90 1:90 2:90 3:90 4:90
+  wait 1000
+}
+
+function grab {
+  servo 1 45
+  wait 500
+  servo 2 135
+  wait 500
+  servo 4 30
+  wait 500
+}
+
+function release {
+  servo 4 90
+  wait 500
+}
+
+function move_base angle {
+  servo 0 $1
+  wait 1000
+}
+
+# メイン処理
+call init_position
+
+repeat 2 {
+  call move_base 45
+  call grab
+  call move_base 135
+  call release
+  call init_position
+  wait 1000
+}

@@ -1,0 +1,15 @@
+# Wave Example
+# サーボ0を左右に振る
+
+servo 0 0
+wait 500
+servo 0 180
+wait 500
+servo 0 90
+wait 500
+servo 0 0
+wait 500
+servo 0 180
+wait 500
+servo 0 90
+90

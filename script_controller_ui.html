@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Script Controller</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      color: white;
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+
+    .header p {
+      font-size: 1.1em;
+      opacity: 0.9;
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    @media (max-width: 1024px) {
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .card-title {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .connection-form {
+      margin-bottom: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e0e0e0;
+      border-radius: 5px;
+      font-size: 1em;
+    }
+
+    .status-badge {
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-weight: bold;
+      font-size: 0.9em;
+    }
+
+    .status-disconnected {
+      background: #fee;
+      color: #c33;
+    }
+
+    .status-connected {
+      background: #efe;
+      color: #3c3;
+    }
+
+    .status-running {
+      background: #ffa;
+      color: #aa6;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 15px;
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1em;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn-success {
+      background: #48bb78;
+      color: white;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #38a169;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn-danger {
+      background: #f56565;
+      color: white;
+    }
+
+    .btn-danger:hover:not(:disabled) {
+      background: #e53e3e;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .btn-secondary {
+      background: #718096;
+      color: white;
+    }
+
+    .btn-secondary:hover:not(:disabled) {
+      background: #4a5568;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+    }
+
+    .file-input-wrapper input[type=file] {
+      position: absolute;
+      left: -9999px;
+    }
+
+    .file-name {
+      padding: 10px;
+      background: #f7fafc;
+      border-radius: 5px;
+      margin-top: 10px;
+      font-family: monospace;
+      color: #4a5568;
+    }
+
+    .editor-container {
+      margin-top: 15px;
+    }
+
+    .code-editor {
+      width: 100%;
+      min-height: 400px;
+      padding: 15px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      resize: vertical;
+      background: #1e1e1e;
+      color: #d4d4d4;
+    }
+
+    .console {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      height: 400px;
+      overflow-y: auto;
+      margin-top: 15px;
+    }
+
+    .console-line {
+      margin-bottom: 5px;
+      padding: 3px 0;
+    }
+
+    .console-info {
+      color: #4fc3f7;
+    }
+
+    .console-success {
+      color: #66bb6a;
+    }
+
+    .console-error {
+      color: #ef5350;
+    }
+
+    .console-warning {
+      color: #ffa726;
+    }
+
+    .servo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
+    .servo-item {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+    }
+
+    .servo-title {
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #333;
+      font-size: 0.9em;
+    }
+
+    .servo-value {
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #667eea;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 15px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s;
+    }
+
+    .example-scripts {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f7fafc;
+      border-radius: 8px;
+    }
+
+    .example-scripts h3 {
+      margin-bottom: 10px;
+      color: #333;
+    }
+
+    .example-btn {
+      display: inline-block;
+      margin: 5px;
+      padding: 8px 16px;
+      background: #667eea;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 0.9em;
+      transition: background 0.3s;
+    }
+
+    .example-btn:hover {
+      background: #5568d3;
+    }
+
+    .status-info {
+      padding: 15px;
+      background: #e6fffa;
+      border-left: 4px solid #38b2ac;
+      border-radius: 5px;
+      margin-top: 15px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🤖 ESP32 Script Controller</h1>
+      <p>Web API経由でスクリプト制御</p>
+    </div>
+
+    <div class="main-grid">
+      <!-- 左側: 接続とスクリプト編集 -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">ESP32接続</div>
+            <div class="status-badge" id="statusBadge">未接続</div>
+          </div>
+          
+          <div class="connection-form">
+            <div class="form-group">
+              <label for="esp32Ip">ESP32 IPアドレス</label>
+              <input type="text" id="esp32Ip" placeholder="192.168.1.10" value="192.168.1.10">
+            </div>
+          </div>
+          
+          <div class="btn-group">
+            <button class="btn btn-primary" id="connectBtn">
+              <span>🔌</span> 接続テスト
+            </button>
+            <button class="btn btn-secondary" id="refreshBtn">
+              <span>🔄</span> サーボ状態更新
+            </button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header">
+            <div class="card-title">スクリプトエディタ</div>
+          </div>
+          
+          <div class="btn-group">
+            <div class="file-input-wrapper">
+              <button class="btn btn-secondary">
+                <span>📁</span> ファイルを開く
+              </button>
+              <input type="file" id="fileInput" accept=".txt,.script">
+            </div>
+            <button class="btn btn-secondary" id="saveBtn">
+              <span>💾</span> 保存
+            </button>
+            <button class="btn btn-primary" id="uploadBtn">
+              <span>📤</span> アップロード
+            </button>
+            <button class="btn btn-success" id="executeBtn" disabled>
+              <span>▶️</span> 実行
+            </button>
+            <button class="btn btn-danger" id="stopBtn" disabled>
+              <span>⏹️</span> 停止
+            </button>
+          </div>
+
+          <div class="file-name" id="fileName">ファイル未選択</div>
+
+          <div class="editor-container">
+            <textarea class="code-editor" id="codeEditor" placeholder="# スクリプトをここに入力
+# 例:
+servo 0 90
+wait 1000
+servo 0 0
+wait 1000
+servo 0 90"></textarea>
+          </div>
+
+          <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+
+          <div class="status-info" id="scriptStatus">
+            スクリプト未アップロード
+          </div>
+
+          <div class="example-scripts">
+            <h3>サンプルスクリプト</h3>
+            <div class="example-btn" onclick="loadExample('wave')">Wave</div>
+            <div class="example-btn" onclick="loadExample('sweep')">Sweep</div>
+            <div class="example-btn" onclick="loadExample('dance')">Dance</div>
+            <div class="example-btn" onclick="loadExample('sequence')">Sequence</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側: コンソールとサーボ状態 -->
+      <div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">コンソール</div>
+            <button class="btn btn-secondary" onclick="clearConsole()" style="padding: 8px 16px; font-size: 0.9em;">
+              クリア
+            </button>
+          </div>
+          <div class="console" id="console"></div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+          <div class="card-header">
+            <div class="card-title">サーボ状態</div>
+          </div>
+          <div class="servo-grid" id="servoGrid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // グローバル変数
+    let esp32BaseUrl = '';
+    let isConnected = false;
+    let isScriptUploaded = false;
+    let statusCheckInterval = null;
+    const numServos = 10;
+    let servoAngles = new Array(numServos).fill(90);
+
+    // UI要素
+    const esp32IpInput = document.getElementById('esp32Ip');
+    const connectBtn = document.getElementById('connectBtn');
+    const refreshBtn = document.getElementById('refreshBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const executeBtn = document.getElementById('executeBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const fileInput = document.getElementById('fileInput');
+    const codeEditor = document.getElementById('codeEditor');
+    const consoleDiv = document.getElementById('console');
+    const statusBadge = document.getElementById('statusBadge');
+    const fileName = document.getElementById('fileName');
+    const progressFill = document.getElementById('progressFill');
+    const servoGrid = document.getElementById('servoGrid');
+    const scriptStatus = document.getElementById('scriptStatus');
+
+    // イベントリスナー
+    connectBtn.addEventListener('click', testConnection);
+    refreshBtn.addEventListener('click', refreshServos);
+    uploadBtn.addEventListener('click', uploadScript);
+    executeBtn.addEventListener('click', executeScript);
+    stopBtn.addEventListener('click', stopScript);
+    saveBtn.addEventListener('click', saveScript);
+    fileInput.addEventListener('change', loadScriptFile);
+
+    // 初期化
+    initServoGrid();
+    loadSavedIP();
+
+    // 保存されたIPアドレスを読み込む
+    function loadSavedIP() {
+      const savedIP = localStorage.getItem('esp32_ip');
+      if (savedIP) {
+        esp32IpInput.value = savedIP;
+      }
+    }
+
+    // サーボグリッドの初期化
+    function initServoGrid() {
+      servoGrid.innerHTML = '';
+      for (let i = 0; i < numServos; i++) {
+        const item = document.createElement('div');
+        item.className = 'servo-item';
+        item.innerHTML = `
+          <div class="servo-title">CH${i}</div>
+          <div class="servo-value" id="servo_val_${i}">${servoAngles[i]}°</div>
+        `;
+        servoGrid.appendChild(item);
+      }
+    }
+
+    // 接続テスト
+    async function testConnection() {
+      const ip = esp32IpInput.value.trim();
+      if (!ip) {
+        logConsole('error', 'IPアドレスを入力してください');
+        return;
+      }
+
+      esp32BaseUrl = `http://${ip}`;
+      localStorage.setItem('esp32_ip', ip);
+
+      try {
+        logConsole('info', `${esp32BaseUrl} に接続中...`);
+        const response = await fetch(`${esp32BaseUrl}/api/servos`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          isConnected = true;
+          updateConnectionStatus();
+          logConsole('success', 'ESP32に接続しました');
+          
+          // サーボ状態を更新
+          data.servos.forEach(servo => {
+            servoAngles[servo.channel] = servo.angle;
+            updateServoDisplay(servo.channel);
+          });
+        } else {
+          throw new Error('接続失敗');
+        }
+      } catch (error) {
+        isConnected = false;
+        updateConnectionStatus();
+        logConsole('error', `接続エラー: ${error.message}`);
+      }
+    }
+
+    // スクリプトをアップロード
+    async function uploadScript() {
+      if (!isConnected) {
+        logConsole('error', 'ESP32に接続してください');
+        return;
+      }
+
+      const script = codeEditor.value.trim();
+      if (!script) {
+        logConsole('warning', 'スクリプトが空です');
+        return;
+      }
+
+      try {
+        logConsole('info', 'スクリプトをアップロード中...');
+        const response = await fetch(`${esp32BaseUrl}/api/script/upload`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ script })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          isScriptUploaded = true;
+          executeBtn.disabled = false;
+          logConsole('success', `スクリプトをアップロードしました（${data.lines}行）`);
+          scriptStatus.textContent = `アップロード完了: ${data.lines}行`;
+        } else {
+          throw new Error('アップロード失敗');
+        }
+      } catch (error) {
+        logConsole('error', `アップロードエラー: ${error.message}`);
+      }
+    }
+
+    // スクリプトを実行
+    async function executeScript() {
+      if (!isScriptUploaded) {
+        logConsole('error', '先にスクリプトをアップロードしてください');
+        return;
+      }
+
+      try {
+        logConsole('info', 'スクリプトを実行中...');
+        const response = await fetch(`${esp32BaseUrl}/api/script/execute`, {
+          method: 'POST'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          stopBtn.disabled = false;
+          executeBtn.disabled = true;
+          logConsole('success', 'スクリプト実行を開始しました');
+          
+          // ステータスチェック開始
+          startStatusCheck();
+        } else {
+          throw new Error('実行失敗');
+        }
+      } catch (error) {
+        logConsole('error', `実行エラー: ${error.message}`);
+      }
+    }
+
+    // スクリプトを停止
+    async function stopScript() {
+      try {
+        const response = await fetch(`${esp32BaseUrl}/api/script/stop`, {
+          method: 'POST'
+        });
+
+        if (response.ok) {
+          stopBtn.disabled = true;
+          executeBtn.disabled = false;
+          logConsole('warning', 'スクリプトを停止しました');
+          stopStatusCheck();
+          progressFill.style.width = '0%';
+        }
+      } catch (error) {
+        logConsole('error', `停止エラー: ${error.message}`);
+      }
+    }
+
+    // ステータスチェック開始
+    function startStatusCheck() {
+      statusCheckInterval = setInterval(async () => {
+        try {
+          const response = await fetch(`${esp32BaseUrl}/api/script/status`);
+          if (response.ok) {
+            const data = await response.json();
+            
+            const progress = data.total_lines > 0 ? (data.current_line / data.total_lines) * 100 : 0;
+            progressFill.style.width = progress + '%';
+            scriptStatus.textContent = `実行中: ${data.current_line}/${data.total_lines}行`;
+            
+            if (data.status === 'idle') {
+              stopStatusCheck();
+              executeBtn.disabled = false;
+              stopBtn.disabled = true;
+              logConsole('success', 'スクリプト実行が完了しました');
+              scriptStatus.textContent = '実行完了';
+              progressFill.style.width = '100%';
+              
+              // サーボ状態を更新
+              refreshServos();
+            }
+          }
+        } catch (error) {
+          console.error('Status check error:', error);
+        }
+      }, 500);
+    }
+
+    // ステータスチェック停止
+    function stopStatusCheck() {
+      if (statusCheckInterval) {
+        clearInterval(statusCheckInterval);
+        statusCheckInterval = null;
+      }
+    }
+
+    // サーボ状態を更新
+    async function refreshServos() {
+      if (!isConnected) {
+        logConsole('warning', 'ESP32に接続してください');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${esp32BaseUrl}/api/servos`);
+        if (response.ok) {
+          const data = await response.json();
+          data.servos.forEach(servo => {
+            servoAngles[servo.channel] = servo.angle;
+            updateServoDisplay(servo.channel);
+          });
+          logConsole('info', 'サーボ状態を更新しました');
+        }
+      } catch (error) {
+        logConsole('error', `更新エラー: ${error.message}`);
+      }
+    }
+
+    // サーボ表示を更新
+    function updateServoDisplay(channel) {
+      const elem = document.getElementById(`servo_val_${channel}`);
+      if (elem) {
+        elem.textContent = servoAngles[channel] + '°';
+      }
+    }
+
+    // 接続状態を更新
+    function updateConnectionStatus() {
+      if (isConnected) {
+        statusBadge.textContent = '接続済み';
+        statusBadge.className = 'status-badge status-connected';
+      } else {
+        statusBadge.textContent = '未接続';
+        statusBadge.className = 'status-badge status-disconnected';
+      }
+    }
+
+    // コンソールにログを追加
+    function logConsole(type, message) {
+      const line = document.createElement('div');
+      line.className = `console-line console-${type}`;
+      const timestamp = new Date().toLocaleTimeString();
+      line.textContent = `[${timestamp}] ${message}`;
+      consoleDiv.appendChild(line);
+      consoleDiv.scrollTop = consoleDiv.scrollHeight;
+    }
+
+    // コンソールをクリア
+    function clearConsole() {
+      consoleDiv.innerHTML = '';
+    }
+
+    // スクリプトファイルを読み込む
+    function loadScriptFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        codeEditor.value = e.target.result;
+        fileName.textContent = `📄 ${file.name}`;
+        logConsole('success', `ファイル "${file.name}" を読み込みました`);
+        isScriptUploaded = false;
+        executeBtn.disabled = true;
+      };
+      reader.readAsText(file);
+    }
+
+    // スクリプトを保存
+    function saveScript() {
+      const script = codeEditor.value;
+      const blob = new Blob([script], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'servo_script.txt';
+      a.click();
+      URL.revokeObjectURL(url);
+      logConsole('success', 'スクリプトを保存しました');
+    }
+
+    // サンプルスクリプトを読み込む
+    function loadExample(type) {
+      let script = '';
+      
+      switch (type) {
+        case 'wave':
+          script = `# Wave Example
+# サーボ0を左右に振る
+
+servo 0 0
+wait 500
+servo 0 180
+wait 500
+servo 0 90
+wait 500
+servo 0 0
+wait 500
+servo 0 180
+wait 500
+servo 0 90`;
+          break;
+
+        case 'sweep':
+          script = `# Sweep Example
+# 全サーボを順番にスイープ
+
+servos 0:0 1:0 2:0 3:0 4:0
+wait 1000
+
+servos 0:90 1:90 2:90 3:90 4:90
+wait 1000
+
+servos 0:180 1:180 2:180 3:180 4:180
+wait 1000
+
+servos 0:90 1:90 2:90 3:90 4:90`;
+          break;
+
+        case 'dance':
+          script = `# Dance Example
+# 複数サーボで踊る
+
+servos 0:45 1:135 2:45 3:135
+wait 300
+
+servos 0:135 1:45 2:135 3:45
+wait 300
+
+servos 0:45 1:135 2:45 3:135
+wait 300
+
+servos 0:135 1:45 2:135 3:45
+wait 300
+
+servos 0:90 1:90 2:90 3:90`;
+          break;
+
+        case 'sequence':
+          script = `# Sequence Example
+# 順番にサーボを動かす
+
+servo 0 180
+wait 200
+servo 1 180
+wait 200
+servo 2 180
+wait 200
+servo 3 180
+wait 200
+servo 4 180
+wait 1000
+
+servo 0 0
+wait 200
+servo 1 0
+wait 200
+servo 2 0
+wait 200
+servo 3 0
+wait 200
+servo 4 0
+wait 1000
+
+servos 0:90 1:90 2:90 3:90 4:90`;
+          break;
+      }
+
+      codeEditor.value = script;
+      fileName.textContent = `📄 ${type}_example.txt`;
+      logConsole('info', `サンプルスクリプト "${type}" を読み込みました`);
+      isScriptUploaded = false;
+      executeBtn.disabled = true;
+    }
+  </script>
+</body>
+</html>

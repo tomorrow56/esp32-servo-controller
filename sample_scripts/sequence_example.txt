@@ -1,0 +1,26 @@
+# Sequence Example
+# 順番にサーボを動かす
+
+servo 0 180
+wait 200
+servo 1 180
+wait 200
+servo 2 180
+wait 200
+servo 3 180
+wait 200
+servo 4 180
+wait 1000
+
+servo 0 0
+wait 200
+servo 1 0
+wait 200
+servo 2 0
+wait 200
+servo 3 0
+wait 200
+servo 4 0
+wait 1000
+
+servos 0:90 1:90 2:90 3:90 4:90

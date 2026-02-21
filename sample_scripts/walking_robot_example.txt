@@ -1,0 +1,51 @@
+# 4足歩行ロボット制御
+
+# 初期姿勢
+function stand {
+  servos 0:90 1:90 2:90 3:90 4:90 5:90 6:90 7:90
+  wait 500
+}
+
+# 右前足と左後足を上げる
+function lift_diagonal_1 {
+  servos 0:45 6:45
+  wait 300
+}
+
+# 右前足と左後足を下ろす
+function lower_diagonal_1 {
+  servos 0:90 6:90
+  wait 300
+}
+
+# 左前足と右後足を上げる
+function lift_diagonal_2 {
+  servos 3:45 7:45
+  wait 300
+}
+
+# 左前足と右後足を下ろす
+function lower_diagonal_2 {
+  servos 3:90 7:90
+  wait 300
+}
+
+# 前進する関数
+function walk_forward {
+  call lift_diagonal_1
+  servos 1:60 5:60
+  call lower_diagonal_1
+  
+  call lift_diagonal_2
+  servos 4:60 8:60
+  call lower_diagonal_2
+}
+
+# メイン処理
+call stand
+
+repeat 10 {
+  call walk_forward
+}
+
+call stand
