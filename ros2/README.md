@@ -218,7 +218,21 @@ endif
 - `servo_bridge_node` が起動しているか確認（port 8080）
 - ブラウザのCORSエラーはノード側で `Access-Control-Allow-Origin: *` を設定済み
 
-## 📄 ライセンス
+## � 詳細ドキュメント
+
+完全なマニュアルは [`ROS2_Manual.md`](ROS2_Manual.md) を参照してください。
+
+- アーキテクチャ詳細・構成図
+- 環境構築手順（ROS2 / micro-ROS Agent / Arduino IDE）
+- ESP32スケッチの設定・書き込み手順
+- ROS2パッケージのビルド・起動手順
+- スクリプト言語リファレンス（条件分岐含む）
+- HTTP APIリファレンス
+- ROS2コマンドラインでの操作例
+- 他のROS2ノードからの利用例（Python）
+- トラブルシューティング
+
+## �📄 ライセンス
 
 [MIT License](../LICENSE) © 2026 tomorrow56
 
