@@ -26,6 +26,10 @@
 #define AGENT_IP      "192.168.1.100"  // micro-ROS Agentが動作するPCのIPアドレス
 #define AGENT_PORT    8888
 
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 2
+#endif
+
 // ===== サーボ設定 =====
 const int NUM_SERVOS = 10;
 const int SERVO_PINS[NUM_SERVOS] = {23, 19, 18, 5, 17, 16, 4, 27, 14, 12};
@@ -134,7 +138,10 @@ void setup() {
 
   // micro-ROS トランスポート設定（Wi-Fi UDP）
   set_microros_wifi_transports(
-    WIFI_SSID, WIFI_PASSWORD, AGENT_IP, AGENT_PORT);
+    const_cast<char*>(WIFI_SSID),
+    const_cast<char*>(WIFI_PASSWORD),
+    const_cast<char*>(AGENT_IP),
+    AGENT_PORT);
   delay(2000);
 
   // micro-ROS 初期化
