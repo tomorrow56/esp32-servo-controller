@@ -1,0 +1,357 @@
+<!--
+  SPDX-License-Identifier: MIT
+  Copyright (c) 2026 tomorrow56
+  https://github.com/tomorrow56/esp32-servo-controller
+-->
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ESP32 Block Script Editor (ROS2)</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #1a365d 0%, #2d6a4f 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container { max-width: 1400px; margin: 0 auto; }
+
+    .header { text-align: center; color: white; margin-bottom: 24px; }
+    .header h1 { font-size: 2.2em; margin-bottom: 8px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+    .header p  { font-size: 1em; opacity: 0.9; }
+    .header a  { color: rgba(255,255,255,0.85); }
+
+    .ros2-badge {
+      background: #22543d; color: white; padding: 3px 10px;
+      border-radius: 12px; font-size: 0.55em; font-weight: bold;
+      vertical-align: middle;
+    }
+
+    /* ===== Connection Bar ===== */
+    .connection-bar {
+      background: white; border-radius: 12px; padding: 14px 20px;
+      margin-bottom: 18px; display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2); flex-wrap: wrap;
+    }
+    .connection-bar label { font-weight: bold; color: #333; white-space: nowrap; }
+    .connection-bar input {
+      padding: 7px 12px; border: 2px solid #e0e0e0; border-radius: 6px;
+      font-size: 0.95em;
+    }
+    .status-badge {
+      padding: 5px 14px; border-radius: 20px; font-weight: bold;
+      font-size: 0.85em; white-space: nowrap;
+    }
+    .status-disconnected { background: #fee; color: #c33; }
+    .status-connected    { background: #efe; color: #3a3; }
+
+    /* ===== Buttons ===== */
+    .btn {
+      padding: 9px 18px; border: none; border-radius: 8px; font-size: 0.9em;
+      cursor: pointer; font-weight: bold; display: inline-flex; align-items: center;
+      gap: 5px; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-primary   { background: #2d6a4f; color: white; }
+    .btn-success   { background: #48bb78; color: white; }
+    .btn-danger    { background: #f56565; color: white; }
+    .btn-secondary { background: #718096; color: white; }
+    .btn-warning   { background: #ed8936; color: white; }
+    .btn-ros2      { background: #22543d; color: white; }
+    .btn-primary:hover:not(:disabled)   { background: #1b4332; transform: translateY(-1px); }
+    .btn-success:hover:not(:disabled)   { background: #38a169; transform: translateY(-1px); }
+    .btn-danger:hover:not(:disabled)    { background: #e53e3e; transform: translateY(-1px); }
+    .btn-secondary:hover:not(:disabled) { background: #4a5568; transform: translateY(-1px); }
+    .btn-warning:hover:not(:disabled)   { background: #dd6b20; transform: translateY(-1px); }
+    .btn-ros2:hover:not(:disabled)      { background: #1a3d2b; transform: translateY(-1px); }
+
+    /* ===== Layout ===== */
+    .editor-layout {
+      display: grid;
+      grid-template-columns: 210px 1fr 300px;
+      gap: 16px;
+    }
+    @media (max-width: 1100px) {
+      .editor-layout { grid-template-columns: 200px 1fr; }
+      .right-panel { grid-column: 1 / -1; }
+    }
+    @media (max-width: 700px) { .editor-layout { grid-template-columns: 1fr; } }
+
+    .card {
+      background: white; border-radius: 12px; padding: 18px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+    }
+    .card-title {
+      font-size: 1.05em; font-weight: bold; color: #333;
+      margin-bottom: 14px; padding-bottom: 10px; border-bottom: 2px solid #e0e0e0;
+    }
+
+    /* ===== Palette ===== */
+    .palette { display: flex; flex-direction: column; gap: 8px; }
+    .palette-block {
+      border-radius: 8px; padding: 11px 13px; cursor: grab; user-select: none;
+      font-weight: bold; font-size: 0.88em; display: flex; align-items: center;
+      gap: 7px; transition: transform 0.15s, box-shadow 0.15s; border: 2px solid transparent;
+    }
+    .palette-block:hover { transform: translateX(4px); box-shadow: 2px 2px 8px rgba(0,0,0,0.15); }
+    .palette-block:active { cursor: grabbing; }
+    .block-servo    { background: #bee3f8; border-color: #3182ce; color: #1a365d; }
+    .block-servos   { background: #c6f6d5; border-color: #38a169; color: #1c4532; }
+    .block-wait     { background: #fefcbf; border-color: #d69e2e; color: #744210; }
+    .block-repeat   { background: #e9d8fd; border-color: #805ad5; color: #322659; }
+    .block-comment  { background: #e2e8f0; border-color: #718096; color: #2d3748; }
+    .block-function { background: #fed7aa; border-color: #dd6b20; color: #7b341e; }
+    .block-call     { background: #fbb6ce; border-color: #d53f8c; color: #702459; }
+    .block-if       { background: #fed7d7; border-color: #e53e3e; color: #742a2a; }
+    .palette-hint  { font-size: 0.75em; color: #718096; margin-top: 2px; line-height: 1.4; padding-left: 4px; }
+
+    /* ===== Canvas ===== */
+    .canvas-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .block-canvas {
+      min-height: 380px; border: 2px dashed #cbd5e0; border-radius: 10px;
+      padding: 14px; background: #f7fafc; display: flex; flex-direction: column;
+      gap: 8px; transition: border-color 0.2s, background 0.2s;
+    }
+    .block-canvas.drag-over { border-color: #2d6a4f; background: #f0fff4; }
+    .canvas-empty {
+      color: #a0aec0; text-align: center; margin: auto; padding: 40px 0;
+      font-size: 0.9em; pointer-events: none;
+    }
+
+    /* ===== Canvas Blocks ===== */
+    .canvas-block {
+      border-radius: 7px; padding: 5px 8px; display: inline-flex; align-items: center;
+      gap: 5px; cursor: grab; user-select: none; border: 2px solid transparent;
+      position: relative; transition: box-shadow 0.15s; flex-wrap: wrap;
+      width: fit-content; max-width: 100%;
+    }
+    .canvas-block:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+    .canvas-block.dragging { opacity: 0.35; }
+    .canvas-block.drag-target-above::before {
+      content: ''; position: absolute; top: -5px; left: 0; right: 0;
+      height: 3px; background: #2d6a4f; border-radius: 2px;
+    }
+    .canvas-block.drag-target-below::after {
+      content: ''; position: absolute; bottom: -5px; left: 0; right: 0;
+      height: 3px; background: #2d6a4f; border-radius: 2px;
+    }
+    .block-icon  { font-size: 1em; flex-shrink: 0; }
+    .block-label { font-weight: bold; font-size: 0.8em; min-width: 48px; flex-shrink: 0; }
+    .block-params { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; }
+    .block-params label { font-size: 0.75em; color: #4a5568; white-space: nowrap; }
+    .block-params input, .block-params select {
+      padding: 2px 5px; border: 1px solid #cbd5e0; border-radius: 4px;
+      font-size: 0.78em; background: white;
+    }
+    .block-params input[type=number] { width: 52px; }
+    .block-params input[type=text]   { width: 110px; }
+    .block-params select             { width: 100px; }
+    .block-delete {
+      background: none; border: none; cursor: pointer; color: #a0aec0;
+      font-size: 0.9em; padding: 1px 4px; border-radius: 4px; flex-shrink: 0;
+      transition: color 0.15s, background 0.15s;
+    }
+    .block-delete:hover { color: #e53e3e; background: #fff5f5; }
+
+    /* ネスト子エリア共通 */
+    .repeat-body {
+      width: 100%; margin-left: 18px; margin-top: 5px;
+      border-left: 3px solid #805ad5; padding-left: 8px;
+      display: flex; flex-direction: column; gap: 5px; min-height: 32px;
+    }
+    .repeat-body.drag-over { background: #faf5ff; border-radius: 0 6px 6px 0; }
+    .if-then-body {
+      width: 100%; margin-left: 18px; margin-top: 5px;
+      border-left: 3px solid #e53e3e; padding-left: 8px;
+      display: flex; flex-direction: column; gap: 5px; min-height: 32px;
+    }
+    .if-then-body.drag-over { background: #fff5f5; border-radius: 0 6px 6px 0; }
+    .if-else-body {
+      width: 100%; margin-left: 18px; margin-top: 5px;
+      border-left: 3px solid #718096; padding-left: 8px;
+      display: flex; flex-direction: column; gap: 5px; min-height: 32px;
+    }
+    .if-else-body.drag-over { background: #f7fafc; border-radius: 0 6px 6px 0; }
+    .if-section-label {
+      font-size: 0.72em; font-weight: bold; color: #718096;
+      padding: 1px 0; user-select: none;
+    }
+
+    /* ===== Right Panel ===== */
+    .right-panel { display: flex; flex-direction: column; gap: 14px; }
+
+    .script-preview {
+      background: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace;
+      font-size: 12px; padding: 12px; border-radius: 8px;
+      min-height: 180px; max-height: 280px; overflow-y: auto; white-space: pre;
+    }
+    .console {
+      background: #1e1e1e; color: #d4d4d4; padding: 10px; border-radius: 8px;
+      font-family: 'Courier New', monospace; font-size: 12px;
+      height: 160px; overflow-y: auto;
+    }
+    .console-line { margin-bottom: 3px; padding: 1px 0; }
+    .console-info    { color: #4fc3f7; }
+    .console-success { color: #66bb6a; }
+    .console-error   { color: #ef5350; }
+    .console-warning { color: #ffa726; }
+
+    .progress-bar {
+      width: 100%; height: 8px; background: #e0e0e0;
+      border-radius: 4px; overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%; background: linear-gradient(90deg, #2d6a4f 0%, #48bb78 100%);
+      width: 0%; transition: width 0.3s;
+    }
+    .status-info {
+      padding: 9px 13px; background: #f0fff4; border-left: 4px solid #2d6a4f;
+      border-radius: 5px; font-size: 0.88em; color: #1b4332; margin-top: 8px;
+    }
+    .servo-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 7px;
+    }
+    .servo-item {
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      padding: 7px; border-radius: 8px; text-align: center;
+    }
+    .servo-title { font-size: 0.72em; font-weight: bold; color: #555; }
+    .servo-value { font-size: 1.05em; font-weight: bold; color: #2d6a4f; }
+
+    .port-info { font-size: 0.78em; color: #718096; font-weight: normal; margin-left: 6px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🧩 ESP32 Block Script Editor <span class="ros2-badge">ROS2</span></h1>
+      <p>ブロックを並べてサーボ制御スクリプトを作成 &nbsp;|&nbsp;
+        <a href="../script_controller_ros2.html">テキストエディタへ</a></p>
+    </div>
+
+    <!-- 接続バー -->
+    <div class="connection-bar">
+      <label>🖥️ ホスト:</label>
+      <input type="text" id="hostInput" placeholder="localhost" value="localhost" style="width:150px">
+      <label>ポート:</label>
+      <input type="text" id="bridgePortInput" placeholder="8080" value="8080" style="width:70px">
+      <button class="btn btn-ros2" id="connectBtn">🔌 接続テスト</button>
+      <span class="status-badge status-disconnected" id="statusBadge">未接続</span>
+      <div style="flex:1"></div>
+      <button class="btn btn-warning" id="uploadBtn">📤 アップロード</button>
+      <button class="btn btn-success" id="executeBtn" disabled>▶️ 実行</button>
+      <button class="btn btn-danger"  id="stopBtn"    disabled>⏹️ 停止</button>
+    </div>
+
+    <!-- エディタ本体 -->
+    <div class="editor-layout">
+
+      <!-- 左: パレット -->
+      <div class="card">
+        <div class="card-title">🧱 ブロック</div>
+        <div class="palette">
+          <div class="palette-block block-servo"   draggable="true" data-type="servo">🎯 servo</div>
+          <div class="palette-hint">1つのサーボを指定角度に動かす</div>
+
+          <div class="palette-block block-servos"  draggable="true" data-type="servos">🎯🎯 servos</div>
+          <div class="palette-hint">複数サーボを同時に動かす</div>
+
+          <div class="palette-block block-wait"    draggable="true" data-type="wait">⏱️ wait</div>
+          <div class="palette-hint">指定ミリ秒だけ待機する</div>
+
+          <div class="palette-block block-repeat"  draggable="true" data-type="repeat">🔁 repeat</div>
+          <div class="palette-hint">内側のブロックをN回繰り返す</div>
+
+          <div class="palette-block block-comment" draggable="true" data-type="comment">💬 コメント</div>
+          <div class="palette-hint"># で始まるコメント行</div>
+
+          <div class="palette-block block-function" draggable="true" data-type="function">📦 function</div>
+          <div class="palette-hint">名前付き関数を定義（内部にブロックをネスト）</div>
+
+          <div class="palette-block block-call" draggable="true" data-type="call">▶️ call</div>
+          <div class="palette-hint">定義済み関数を呼び出す</div>
+
+          <div class="palette-block block-if" draggable="true" data-type="if">❓ if</div>
+          <div class="palette-hint">条件分岐（サーボ角度で分岐・script_runner_node側評価）</div>
+        </div>
+      </div>
+
+      <!-- 中央: キャンバス -->
+      <div class="card">
+        <div class="card-title">📋 スクリプトキャンバス</div>
+        <div class="canvas-toolbar">
+          <button class="btn btn-secondary" id="clearBtn">🗑️ 全削除</button>
+          <button class="btn btn-secondary" id="loadExampleBtn">📚 サンプル</button>
+          <select id="exampleSelect"
+            style="padding:5px 8px;border:2px solid #e0e0e0;border-radius:6px;font-size:0.85em;">
+            <option value="wave">Wave</option>
+            <option value="sweep">Sweep</option>
+            <option value="dance">Dance</option>
+            <option value="sequence">Sequence</option>
+          </select>
+          <button class="btn btn-secondary" id="openFileBtn">📂 ファイル読込</button>
+          <button class="btn btn-primary"   id="saveFileBtn">💾 保存</button>
+          <input type="file" id="fileInput" accept=".txt,.script" style="display:none">
+        </div>
+        <div class="block-canvas" id="blockCanvas">
+          <div class="canvas-empty" id="canvasEmpty">
+            ← パレットからブロックをドラッグして追加
+          </div>
+        </div>
+      </div>
+
+      <!-- 右: プレビュー・コンソール・状態 -->
+      <div class="right-panel">
+        <div class="card">
+          <div class="card-title">📄 生成スクリプト</div>
+          <div class="script-preview" id="scriptPreview"># ブロックを追加するとここに表示されます</div>
+        </div>
+
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div class="card-title" style="margin-bottom:0;border:none;padding:0;">🖥️ コンソール</div>
+            <button class="btn btn-secondary" id="clearConsoleBtn"
+              style="padding:4px 10px;font-size:0.8em;">クリア</button>
+          </div>
+          <div class="console" id="consoleDiv"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">📊 実行状態
+            <span class="port-info">script_runner_node: port 8081</span>
+          </div>
+          <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="status-info" id="scriptStatus">待機中</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🎛️ サーボ状態
+            <span class="port-info">servo_bridge_node: port 8080</span>
+          </div>
+          <div class="servo-grid" id="servoGrid"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🤖 ROS2 トピック</div>
+          <div style="font-size:0.82em;line-height:1.8;color:#4a5568;">
+            <div>📥 <code>/servo_command</code></div>
+            <div style="padding-left:12px;color:#718096;">Int32MultiArray [ch, angle]</div>
+            <div>📥 <code>/servos_command</code></div>
+            <div style="padding-left:12px;color:#718096;">Int32MultiArray [ch0, a0, ...]</div>
+            <div>📤 <code>/servo_state</code></div>
+            <div style="padding-left:12px;color:#718096;">Int32MultiArray [a0..a9]</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
