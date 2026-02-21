@@ -39,6 +39,8 @@
 
 Preferences prefs;
 char agentIp[40] = AGENT_IP_DEFAULT;
+static char wifiSsid[40];
+static char wifiPassword[64];
 
 // ===== OTA設定 =====
 static const char*    OTA_USERNAME = "admin";
@@ -307,9 +309,7 @@ void setup() {
   // ===== micro-ROS トランスポート設定（接続済みWi-Fiを使用） =====
   oledPrint("micro-ROS", "Connecting agent...", String(agentIp));
   
-  // WiFi credentials must be stored in persistent buffers
-  char wifiSsid[40];
-  char wifiPassword[64];
+  // WiFi credentials must be stored in persistent buffers (global)
   WiFi.SSID().toCharArray(wifiSsid, sizeof(wifiSsid));
   WiFi.psk().toCharArray(wifiPassword, sizeof(wifiPassword));
   
