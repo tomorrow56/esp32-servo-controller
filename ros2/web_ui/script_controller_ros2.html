@@ -291,7 +291,10 @@ servo 0 90
       connectBtn.disabled = true;
       logConsole('info', `接続テスト中: ${url}`);
       try {
-        const res = await fetch(`${url}/api/servo/status`, { signal: AbortSignal.timeout(4000) });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch(`${url}/api/servo/status`, { signal: controller.signal });
+        clearTimeout(timeoutId);
         if (res.ok) {
           const data = await res.json();
           isConnected = true;
