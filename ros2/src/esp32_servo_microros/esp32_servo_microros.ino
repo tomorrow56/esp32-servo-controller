@@ -236,7 +236,7 @@ void setup() {
 
   SimpleWiFiManager wm;
   wm.addParameter(&agentIpParam);
-  wm.setConfigPortalTimeout(120);
+  wm.setConfigPortalTimeout(5);
   wm.setSaveConfigCallback([]() {
     Serial.println("[WiFiManager] Config saved");
   });
