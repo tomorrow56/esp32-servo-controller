@@ -245,7 +245,7 @@ async function testConnection() {
   connectBtn.disabled = true;
   logConsole('info', `接続テスト中: ${esp32BaseUrl}`);
   try {
-    const res = await fetch(`${esp32BaseUrl}/api/servo/status`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`${esp32BaseUrl}/api/servos`, { signal: AbortSignal.timeout(4000) });
     if (res.ok) {
       const data = await res.json();
       isConnected = true;
