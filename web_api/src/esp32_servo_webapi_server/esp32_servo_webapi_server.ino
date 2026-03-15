@@ -224,7 +224,8 @@ void loop() {
       }
     }
     
-    delay(10);
+    client.flush();
+    delay(50);
     client.stop();
     Serial.println("Client Disconnected.");
   }
@@ -596,15 +597,18 @@ void sendJSONResponse(WiFiClient &client, int statusCode, String jsonBody) {
   String statusText = "OK";
   if (statusCode == 400) statusText = "Bad Request";
   else if (statusCode == 404) statusText = "Not Found";
-  
-  client.println("HTTP/1.1 " + String(statusCode) + " " + statusText);
-  client.println("Content-Type: application/json");
-  client.println("Access-Control-Allow-Origin: *");
-  client.println("Access-Control-Allow-Methods: GET, POST, OPTIONS");
-  client.println("Access-Control-Allow-Headers: Content-Type");
-  client.println("Connection: close");
-  client.println();
-  client.println(jsonBody);
+
+  String response = "HTTP/1.1 " + String(statusCode) + " " + statusText + "\r\n";
+  response += "Content-Type: application/json\r\n";
+  response += "Access-Control-Allow-Origin: *\r\n";
+  response += "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n";
+  response += "Access-Control-Allow-Headers: Content-Type\r\n";
+  response += "Content-Length: " + String(jsonBody.length()) + "\r\n";
+  response += "Connection: close\r\n";
+  response += "\r\n";
+  response += jsonBody;
+  client.print(response);
+  client.flush();
 }
 
 void serveWebUI(WiFiClient &client) {
