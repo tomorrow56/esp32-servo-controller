@@ -45,10 +45,12 @@ ESP32をWi-Fi経由のWeb APIサーバーとして動作させ、ブラウザか
 3. ライブラリマネージャから以下をインストール
    - `ESP32Servo` by Kevin Harrington
    - `ArduinoJson` by Benoit Blanchon
-   - `SimpleWiFiManager` by tomorrow56
    - `Adafruit SSD1306` by Adafruit
    - `Adafruit GFX Library` by Adafruit
    - `ESP32FwUploader` by tomorrow56
+
+4. 以下のライブラリをGitHubからZIPでダウンロードしてArduino IDEにインストール
+   - `SimpleWiFiManager`: https://github.com/tomorrow56/SimpleWiFiManager (ZIPダウンロード → スケッチ → ライブラリを.ZIP形式のライブラリをインストール)
 
 ### 3. ESP32への書き込みとWi-Fi設定
 
