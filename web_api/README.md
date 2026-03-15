@@ -45,20 +45,26 @@ ESP32をWi-Fi経由のWeb APIサーバーとして動作させ、ブラウザか
 3. ライブラリマネージャから以下をインストール
    - `ESP32Servo` by Kevin Harrington
    - `ArduinoJson` by Benoit Blanchon
+   - `SimpleWiFiManager` by tomorrow56
+   - `Adafruit SSD1306` by Adafruit
+   - `Adafruit GFX Library` by Adafruit
+   - `ESP32FwUploader` by tomorrow56
 
-### 3. ESP32への書き込み
+### 3. ESP32への書き込みとWi-Fi設定
 
 1. `src/esp32_servo_webapi_server/esp32_servo_webapi_server.ino` をArduino IDEで開く
-2. Wi-FiのSSIDとパスワードを設定
+2. ボードを `ESP32 Dev Module` に設定
+3. 適切なCOMポートを選択してスケッチを書き込む
+4. **初回起動時のWi-Fi設定**
+   - ESP32が `ESP32-ServoAP` というアクセスポイントを起動します
+   - スマートフォンまたはPCで `ESP32-ServoAP` に接続
+   - ブラウザで `http://192.168.4.1` を開く
+   - Wi-FiのSSIDとパスワードを入力して保存
+   - ESP32が再起動し、設定したWi-Fiに接続されます
+5. シリアルモニタ（115200baud）またはOLEDでIPアドレスを確認
 
-   ```cpp
-   const char* ssid = "your_wifi_ssid";
-   const char* password = "your_wifi_password";
-   ```
-
-3. ボードを `ESP32 Dev Module` に設定
-4. 適切なCOMポートを選択してスケッチを書き込む
-5. シリアルモニタ（115200baud）でIPアドレスを確認
+> **注意**: 設定済みWi-Fiが見つからない場合、5秒後に自動的にAPモードを終了して再起動します。
+> Wi-Fi設定をリセットするには、IO0ボタン（BOOTボタン）を5秒間長押しします。
 
 ### 4. ハードウェアの接続
 
@@ -159,8 +165,9 @@ call wave
 
 ### Wi-Fiに接続できない
 
-- SSIDとパスワードが正しいか確認してください
+- ESP32起動時に `ESP32-ServoAP` APが現れない場合、IO0ボタンを5秒長押しして設定リセット後、再度AP設定を行ってください
 - ESP32がWi-Fiの電波範囲内にあるか確認してください
+- 2.4GHz帯のWi-Fiのみ対応しています（5GHz非対応）
 
 ### Webページにアクセスできない
 
