@@ -2,6 +2,7 @@
 // Copyright (c) 2026 tomorrow56
 // https://github.com/tomorrow56/esp32-servo-controller
 
+#include <vector>
 #include <WiFi.h>
 #include <SimpleWiFiManager.h>
 #include <WebServer.h>
@@ -241,7 +242,7 @@ void handleScriptExecute() {
   xTaskCreatePinnedToCore(
     scriptExecutionTask,
     "ScriptTask",
-    8192,
+    32768,
     NULL,
     1,
     &scriptTaskHandle,
@@ -311,20 +312,18 @@ bool evaluateCondition(String args) {
 void scriptExecutionTask(void *parameter) {
   Serial.println("Script execution started");
 
-  // スクリプトを行配列に分割
-  const int MAX_LINES = 512;
-  String lines[MAX_LINES];
-  int lineCount = 0;
-
+  // スクリプトを行配列に分割（ヒープ上に確保）
+  std::vector<String> lines;
   int lineStart = 0;
-  while (lineStart < (int)currentScript.length() && lineCount < MAX_LINES) {
+  while (lineStart < (int)currentScript.length()) {
     int lineEnd = currentScript.indexOf('\n', lineStart);
     if (lineEnd == -1) lineEnd = currentScript.length();
     String ln = currentScript.substring(lineStart, lineEnd);
     ln.trim();
-    lines[lineCount++] = ln;
+    lines.push_back(ln);
     lineStart = lineEnd + 1;
   }
+  int lineCount = lines.size();
   totalLines = lineCount;
   currentLine = 0;
 
