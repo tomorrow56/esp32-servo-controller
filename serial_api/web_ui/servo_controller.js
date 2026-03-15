@@ -2,6 +2,8 @@
 let port = null;
 let reader = null;
 let writer = null;
+let readableStreamClosed = null;
+let writableStreamClosed = null;
 let isConnected = false;
 let isRunning = false;
 let shouldStop = false;
@@ -62,11 +64,11 @@ async function connectToESP32() {
 
     // Reader と Writer を取得
     const textDecoder = new TextDecoderStream();
-    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+    readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
     reader = textDecoder.readable.getReader();
 
     const textEncoder = new TextEncoderStream();
-    const writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
+    writableStreamClosed = textEncoder.readable.pipeTo(port.writable);
     writer = textEncoder.writable.getWriter();
 
     isConnected = true;
@@ -87,20 +89,32 @@ async function connectToESP32() {
 // ESP32から切断
 async function disconnectFromESP32() {
   try {
+    isConnected = false;
+
     if (reader) {
       await reader.cancel();
       reader = null;
     }
+    // pipeTo()のPromiseが解決するまで待つ（readableストリームのロック解放）
+    if (readableStreamClosed) {
+      await readableStreamClosed.catch(() => {});
+      readableStreamClosed = null;
+    }
+
     if (writer) {
       await writer.close();
       writer = null;
     }
+    if (writableStreamClosed) {
+      await writableStreamClosed.catch(() => {});
+      writableStreamClosed = null;
+    }
+
     if (port) {
       await port.close();
       port = null;
     }
 
-    isConnected = false;
     updateConnectionStatus();
     logConsole('info', 'ESP32から切断しました');
 
