@@ -7,7 +7,8 @@
 // ===== 定数 =====
 const NUM_SERVOS  = 10;
 const BAUD_RATE   = 115200;
-const CMD_TIMEOUT = 3000;
+const CMD_TIMEOUT   = 500;
+const SERVO_TIMEOUT = 300;
 
 // ===== 状態 =====
 let serialPort      = null;
@@ -230,16 +231,18 @@ async function executeScript() {
         const parts = arg.split(/\s+/);
         const ch    = parseInt(parts[0], 10);
         const angle = parseInt(parts[1], 10);
-        const resp  = await sendCommand(`servo ${ch} ${angle}`);
-        logConsole(resp.startsWith('OK') ? 'success' : 'error', `servo ${ch} → ${angle}° : ${resp}`);
+        await sendLine(`servo ${ch} ${angle}`);
+        const resp = await readLineWithTimeout(SERVO_TIMEOUT);
+        logConsole(resp && resp.startsWith('OK') ? 'success' : 'info', `servo ${ch} → ${angle}°`);
         if (ch >= 0 && ch < NUM_SERVOS) {
           servoAngles[ch] = angle;
           const el = document.getElementById(`servo-val-${ch}`);
           if (el) el.textContent = `${angle}°`;
         }
       } else if (cmd === 'servos') {
-        const resp = await sendCommand(`servos ${arg}`);
-        logConsole(resp.startsWith('OK') ? 'success' : 'error', `servos ${arg} : ${resp}`);
+        await sendLine(`servos ${arg}`);
+        const resp = await readLineWithTimeout(SERVO_TIMEOUT);
+        logConsole(resp && resp.startsWith('OK') ? 'success' : 'info', `servos ${arg}`);
         arg.split(/\s+/).forEach(pair => {
           const [ch, angle] = pair.split(':').map(Number);
           if (!isNaN(ch) && !isNaN(angle) && ch >= 0 && ch < NUM_SERVOS) {
