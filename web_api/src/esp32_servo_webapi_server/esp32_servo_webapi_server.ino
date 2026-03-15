@@ -195,7 +195,7 @@ void loop() {
         } else {
           if (c == '\n') {
             if (headerLine.length() == 0) {
-              if (contentLength > 0 && requestMethod == "POST") {
+              if (contentLength > 0) {
                 isBodyReading = true;
               } else {
                 handleRequest(client, requestMethod, requestPath, "");
