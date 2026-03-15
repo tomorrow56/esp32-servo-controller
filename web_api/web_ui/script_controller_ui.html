@@ -591,6 +591,10 @@ servo 0 90"></textarea>
 
     // スクリプトを実行
     async function executeScript() {
+      if (!isConnected || !esp32BaseUrl) {
+        logConsole('error', 'ESP32に接続してください');
+        return;
+      }
       if (!isScriptUploaded) {
         logConsole('error', '先にスクリプトをアップロードしてください');
         return;

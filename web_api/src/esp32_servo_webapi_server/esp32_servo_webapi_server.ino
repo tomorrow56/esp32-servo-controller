@@ -100,7 +100,7 @@ void setup() {
 
   // ===== SimpleWiFiManager =====
   SimpleWiFiManager wm;
-  wm.setConfigPortalTimeout(120);
+  wm.setConfigPortalTimeout(5);
   wm.setAPCallback([](SimpleWiFiManager *wm) {
     Serial.println("Config portal started");
     oledPrint("WiFi Setup AP", "ESP32-ServoAP", "192.168.4.1");
@@ -312,7 +312,7 @@ void handleScriptExecute(WiFiClient &client) {
     NULL,
     1,
     &scriptTaskHandle,
-    0
+    1
   );
   
   sendJSONResponse(client, 200, "{\"status\":\"running\",\"execution_id\":\"exec_001\"}");
@@ -449,7 +449,7 @@ void scriptExecutionTask(void *parameter) {
         executeServosCommand(args);
       } else if (cmd == "wait") {
         int duration = args.toInt();
-        delay(duration);
+        vTaskDelay(pdMS_TO_TICKS(duration));
       } else {
         Serial.print("Unknown command: ");
         Serial.println(cmd);
